@@ -1,10 +1,11 @@
-import { asycHandler } from "../utils/asycHandler.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import { json } from "express";
 
 const { aggregate } = mongoose;
 
@@ -26,7 +27,7 @@ const generateAccessAndRefereshTokens = async (userId) => {
   }
 };
 
-const registerUser = asycHandler(async (req, res) => {
+const registerUser = asyncHandler(async (req, res) => {
   // get user details from frontend//
   // validation - not empty//
   // check if user alreday exists : username , email//
@@ -38,8 +39,8 @@ const registerUser = asycHandler(async (req, res) => {
   // return res
 
   const { fullName, email, password, username } = req.body;
-  // console.log("email : ", email);
-  // console.log(req.body);
+  console.log("email : ", email);
+  console.log(req.body);
 
   if (
     [fullName, username, email, password].some((files) => files?.trim() === "")
@@ -57,6 +58,8 @@ const registerUser = asycHandler(async (req, res) => {
   const avatarLocalPath = req.files?.avatar[0]?.path;
   // const coverImageLocalPath = req.files?.coverImage[0]?.path;
 
+  console.log(req.files);
+  
   let coverImageLocalPath;
   if (
     req.files &&
@@ -94,12 +97,12 @@ const registerUser = asycHandler(async (req, res) => {
     throw new ApiError(500, "something went wrong while registering the user ");
   }
 
-  return res
-    .status(201)
-    .json(new ApiResponse(200, createdUser, "User registered Successfully "));
+  // return res
+  //   .status(201)
+  //   .json(new ApiResponse(200, createdUser, "User registered Successfully "));
 });
 
-const loginUser = asycHandler(async (req, res) => {
+const loginUser = asyncHandler(async (req, res) => {
   // req body -> data
   // username or email
   //  find the  user
@@ -157,12 +160,12 @@ const loginUser = asycHandler(async (req, res) => {
     );
 });
 
-const logoutUser = asycHandler(async (req, res) => {
+const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
     {
-      $set: {
-        refreshToken: undefined,
+      $unset: {
+        refreshToken: 1,
       },
     },
     {
@@ -182,7 +185,7 @@ const logoutUser = asycHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "user loggedout"));
 });
 
-const refreshAccessToken = asycHandler(async (req, res) => {
+const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken = req.cookie.refreshToken || req.body.refreshToken;
 
   if (!incomingRefreshToken) {
@@ -204,18 +207,17 @@ const refreshAccessToken = asycHandler(async (req, res) => {
       throw new ApiError(401, "refresh Token is expired or userd");
     }
 
-    const option = {
-      httpOnly: true,
-      secure: true,
-    };
-
     const { newRefreshToken, AccessToken } =
       await generateAccessAndRefereshTokens(user._id);
 
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
     return res
       .status(200)
-      .cookie("accessToken", AccessToken, option)
-      .cookie("refreshtoken", newRefreshToken, option)
+      .cookie("accessToken", AccessToken, options)
+      .cookie("refreshtoken", newRefreshToken, options)
       .json(
         new ApiResponse(
           200,
@@ -228,8 +230,9 @@ const refreshAccessToken = asycHandler(async (req, res) => {
   }
 });
 
-const changeCurrentPassword = asycHandler(async (res, req) => {
+const changeCurrentPassword = asyncHandler(async (res, req) => {
   const { oldPassword, newPassword } = req.body;
+  console.log(req.body);
 
   const user = await User.findById(req.user._id);
 
@@ -245,17 +248,17 @@ const changeCurrentPassword = asycHandler(async (res, req) => {
     .json(new ApiResponse(200, {}, "Password change successfully "));
 });
 
-const getCurrentUser = asycHandler(async (req, res) => {
+const getCurrentUser = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, req.user, "current user fetched successfully"));
 });
 
-const updateAccountDetails = asycHandler(async (req, res) => {
+const updateAccountDetails = asyncHandler(async (req, res) => {
   const { fullName, email, username } = req.body;
 
   if (!fullName || !email || !username) {
-    throw new ApiError(401, "All fileds are required  ");
+    throw new ApiError(401, "fullName , email , username  are required ");
   }
 
   const user = await User.findByIdAndUpdate(
@@ -276,7 +279,7 @@ const updateAccountDetails = asycHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Account details updated successfully "));
 });
 
-const updatedUserAvatar = asycHandler(async (req, res) => {
+const updatedUserAvatar = asyncHandler(async (req, res) => {
   const avatarLocalPath = req.file?.path;
 
   if (!avatarLocalPath) {
@@ -304,7 +307,7 @@ const updatedUserAvatar = asycHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "avatar updated successfully "));
 });
 
-const updateUserCoverImage = asycHandler(async (req, res) => {
+const updateUserCoverImage = asyncHandler(async (req, res) => {
   const CoverImageLocalPath = req.file?.path;
   if (!CoverImageLocalPath) {
     throw new ApiError(400, "cover Image is missing ");
@@ -332,7 +335,7 @@ const updateUserCoverImage = asycHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "cover Image upadate successfully "));
 });
 
-const getUserChannelProfile = asycHandler(async (req, res) => {
+const getUserChannelProfile = asyncHandler(async (req, res) => {
   const { username } = req.params;
   if (!username?.trim()) {
     throw new ApiError(400, "username is missing");
@@ -402,7 +405,7 @@ const getUserChannelProfile = asycHandler(async (req, res) => {
     );
 });
 
-const getWatchhHistory = asycHandler(async (req, res) => {
+const getWatchhHistory = asyncHandler(async (req, res) => {
   const user = await User.aggregate([
     {
       $match: {
@@ -411,23 +414,23 @@ const getWatchhHistory = asycHandler(async (req, res) => {
     },
     {
       $lookup: {
-        from: "Video",
+        from: "videos",
         localField: "watchHistory",
-        foreignField: "_id",
+        foreignField: _id,
         as: "watchHistory",
         pipeline: [
           {
             $lookup: {
               from: "users",
               localField: "owner",
-              localField: "_id",
+              foreignField: "_id",
               as: "owner",
               pipeline: [
                 {
                   $project: {
                     fullName: 1,
-                    username: 1,
                     avatar: 1,
+                    username: 1,
                   },
                 },
               ],
@@ -444,12 +447,21 @@ const getWatchhHistory = asycHandler(async (req, res) => {
       },
     },
   ]);
-  return res.status(200)
-  .json(new ApiResponse(200,user[0].watchHistory,"watchHistory Fatch"))
+  return (
+    res.status(200),
+    json(
+      new ApiResponse(
+        200,
+        user[0].watchHistory,
+        "Watch history fetched successfully"
+      )
+    )
+  );
 });
 
 export {
   registerUser,
+
   loginUser,
   logoutUser,
   refreshAccessToken,
@@ -461,3 +473,4 @@ export {
   getUserChannelProfile,
   getWatchhHistory,
 };
+
