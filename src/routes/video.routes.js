@@ -3,10 +3,10 @@ import {
     deleteVideo,
     getAllVideos,
     getVideoById,
-    publishAVideo,
+    publishAllVideo,
     togglePublishStatus,
     updateVideo,
-} from "../controllers/video.controller.js"
+} from '../controllers/video.controllers.js'
 import {verifyJWT} from "../middlewares/auth.middleware.js"
 import {upload} from "../middlewares/multer.middleware.js"
 
@@ -28,7 +28,7 @@ router
             },
             
         ]),
-        publishAVideo
+        publishAllVideo
     );
 
 router

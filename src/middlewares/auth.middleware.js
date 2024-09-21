@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import { User } from "../models/user.model.js";
 
 
- const varifyJWT = asyncHandler(async (req, _, next) => {
+ const verifyJWT = asyncHandler(async (req, _, next) => {
   try {
     const token =
       req.cookies?.accessToken ||
@@ -32,4 +32,4 @@ import { User } from "../models/user.model.js";
 });
 
 
-export default varifyJWT
+export  {verifyJWT}
