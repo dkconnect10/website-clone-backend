@@ -6,6 +6,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
+
 const getAllVideos = asyncHandler(async (req, res) => {
   const {
     page = 1,
@@ -22,7 +23,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
   if (pageNumber < 1 || limitNumber < 1) {
     throw new ApiError(
       400,
-      "page number or limit number must be probide positive number "
+      "page number or limit number must be provided as positive numbers"
     );
   }
 
@@ -39,11 +40,11 @@ const getAllVideos = asyncHandler(async (req, res) => {
     ...(userId && { user: userId }),
   };
 
-  const videos = await Video.paginate(options);
+  const videos = await Video.mongooseAggregatePaginate(options);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, videos, "video found successfully "));
+    .json(new ApiResponse(200, videos, "Videos found successfully"));
 });
 
 const publishAllVideo = asyncHandler(async (req, res) => {
@@ -52,21 +53,19 @@ const publishAllVideo = asyncHandler(async (req, res) => {
   if (!title || !description) {
     throw new ApiError(401, "please give me title and description ");
   }
-  const { videoFile, thumbnail } = req.files;
-
-  if (!videoFile || !thumbnail) {
-    throw new ApiError(
-      401,
-      "videoFile and thumbnail not upload successfully on localstorage "
-    );
+ 
+  const videoFileLocalStore = req.files?.videoFile[0].path;
+  if (!videoFileLocalStore) {
+    throw new ApiError(400,"videoFile not upload on local storage")
   }
-
-  const videoFileLocalStore = req.files.videoFile[0].path;
   const thumbnailLocalStore = req.files.thumbnail[0].path;
+  if (!thumbnailLocalStore) {
+    throw new ApiError(400,"thumbnail not uploaded on local storage")
+  }
 
   const video = await uploadOnCloudinary(videoFileLocalStore);
   if (!video) {
-    throw new ApiError(401, "video not upload successfully on cloudinary ");
+    throw new ApiError(401, "videoFile not upload  on cloudinary ");
   }
   const thumbnailUpload = await uploadOnCloudinary(thumbnailLocalStore);
 
@@ -124,6 +123,20 @@ const updateVideo = asyncHandler(async (req, res) => {
     throw new ApiError(401, "VideoId not found");
   }
 
+  const thumbnailUploadOnLocalPath = req.files?.thumbnail[0]?.path
+  
+
+ 
+  if (!thumbnailUploadOnLocalPath) {
+    throw new ApiError(400,"thumbnail not uploaded properly on localstorage")
+  }
+
+  const thumbnail = await uploadOnCloudinary(thumbnailUploadOnLocalPath)
+  
+  if (!thumbnail) {
+    throw new ApiError(501,"thumbnail not upload on cloudinary ")
+  }
+
   const updatedValue = await Video.findByIdAndUpdate(
     videoId,
     {
@@ -143,14 +156,18 @@ const updateVideo = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(201, updatedValue, "Value update successfully"));
-  //TODO: update video details like title, description, thumbnail
+  // TODO: update video details like title, description, thumbnail
 });
 
 const deleteVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
 
+  if (!videoId) {
+    throw new ApiError(400,"provide video id please")
+  }
+
   if (!isValidObjectId(videoId)) {
-    throw new ApiError(401, "videoId is false");
+    throw new ApiError(401, "videoId not valid");
   }
 
   const removeVideo = await Video.findByIdAndDelete(
@@ -183,7 +200,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(200, foundVideo, "Video publish status toggled successfully");
+    .json(new ApiResponse(200, foundVideo, "Video publish status toggled successfully"));
 });
 
 export {
