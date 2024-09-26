@@ -20,34 +20,36 @@ const getAllVideos = asyncHandler(async (req, res) => {
   const limitNumber = +limit;
 
   if (pageNumber < 1 || limitNumber < 1) {
-    throw new ApiError(400, "page number or limit number must be provided as positive numbers");
-
+    throw new ApiError(
+      400,
+      "page number or limit number must be provided as positive numbers"
+    );
   }
 
- const pipline = [
-      {
-        $match :{
-          ...(query && {
-            $or : [
-              {title : new RegExp(query,"i")},
-              {description: new RegExp(query,"i")}
-            ],
-          }),
-          ...(userId &&{user:userId})
-        },
+  const pipline = [
+    {
+      $match: {
+        ...(query && {
+          $or: [
+            { title: new RegExp(query, "i") },
+            { description: new RegExp(query, "i") },
+          ],
+        }),
+        ...(userId && { user: userId }),
       },
-      {
-        $sort :{
-          [sortBy]: sortType==="asc" ? 1 : -1
-        },
+    },
+    {
+      $sort: {
+        [sortBy]: sortType === "asc" ? 1 : -1,
       },
-    ];
+    },
+  ];
 
-    const options = {
-      page: pageNumber,
-      limit: limitNumber,
-    }
-  const videos = await Video.aggregatePaginate(pipline,options);
+  const options = {
+    page: pageNumber,
+    limit: limitNumber,
+  };
+  const videos = await Video.aggregatePaginate(pipline, options);
 
   return res
     .status(200)
@@ -71,6 +73,8 @@ const publishAllVideo = asyncHandler(async (req, res) => {
   }
 
   const video = await uploadOnCloudinary(videoFileLocalStore);
+  // console.log(video);
+
   if (!video) {
     throw new ApiError(401, "videoFile not upload  on cloudinary ");
   }
@@ -85,7 +89,8 @@ const publishAllVideo = asyncHandler(async (req, res) => {
     thumbnail: thumbnailUpload.url,
     title,
     description,
-    user: req.user ? req.user._id : null,
+    duration: video?.duration,
+    owner: req.user ? req.user._id : null,
   });
   if (!videoObject) {
     throw new ApiError(501, "video object not create ");
@@ -103,15 +108,11 @@ const publishAllVideo = asyncHandler(async (req, res) => {
 const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
 
-  if (!videoId) {
-    throw new ApiError(400, "provide video Id ");
-  }
-
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video Id ");
   }
 
-  const video = await Video.findById(videoId);
+  const video = await Video.findById(videoId).populate("owner", "name");
 
   if (!video) {
     throw new ApiError(500, "Video not found");
@@ -126,34 +127,33 @@ const getVideoById = asyncHandler(async (req, res) => {
 const updateVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
 
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(404,"Enter valid video id please")
+  }
+
   const { title, description } = req.body;
 
   if (!title || !description) {
     throw new ApiError(401, "title and description are required");
   }
 
-  const existingVideo = await Video.findById(videoId)
+  const existingVideo = await Video.findById(videoId);
 
   if (!existingVideo) {
-    throw new ApiError(401,"video not found")
+    throw new ApiError(401, "video not found");
   }
 
-
-  let thumbnail = existingVideo.thumbnail
+  let thumbnail = existingVideo.thumbnail.url;
 
   const thumbnailLocal = req.files?.thumbnail[0]?.path;
 
   if (thumbnailLocal) {
     const uploadedThumbnail = await uploadOnCloudinary(thumbnailLocal);
     if (!uploadedThumbnail || !uploadedThumbnail.url) {
-      throw new ApiError(501,"thumbnail not uploaded to cloudinary")
+      throw new ApiError(501, "thumbnail not uploaded to cloudinary");
     }
-    thumbnail=uploadedThumbnail.url
+    thumbnail = uploadedThumbnail.url;
   }
-
-  
-
-  
 
   const updateVideosDetail = await Video.findByIdAndUpdate(
     videoId,
@@ -161,17 +161,16 @@ const updateVideo = asyncHandler(async (req, res) => {
       $set: {
         title: title,
         description: description,
-        thumbnail: thumbnail
+        thumbnail: thumbnail,
       },
     },
     {
       new: true,
     }
   );
-    if (!updateVideosDetail) {
-      throw new ApiError(501,"Video details not updated properly")
-    }
-
+  if (!updateVideosDetail) {
+    throw new ApiError(501, "Video details not updated properly");
+  }
 
   return res
     .status(201)
@@ -182,20 +181,16 @@ const updateVideo = asyncHandler(async (req, res) => {
         "title , description and thumbnail updated sucessfully "
       )
     );
- // TODO: update video details like title, description, thumbnail
+  // TODO: update video details like title, description, thumbnail
 });
 
 const deleteVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
 
-  if (!videoId) {
+  if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "provide video id please");
   }
-
-  if (!isValidObjectId(videoId)) {
-    throw new ApiError(401, "videoId not valid");
-  }
-
+  
   const removeVideo = await Video.findByIdAndDelete(
     videoId,
 
@@ -243,5 +238,3 @@ export {
   deleteVideo,
   togglePublishStatus,
 };
-
-
