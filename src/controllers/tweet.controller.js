@@ -28,15 +28,11 @@ const createTweet = asyncHandler(async (req, res) => {
 });
 
 const getUserTweets = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
+  const user = await User.findById(req.user._id);
 
-  if (!isValidObjectId(userId)) {
-    throw new ApiError(401, "please enter valid userId");
-  }
+  const tweet = await Tweet.find({ user: user._id });
 
-  const tweet = await Tweet.find({ user: userId });
-
-  if (!tweet) {
+  if (!tweet?.length) {
     throw new ApiError(404, "tweet not found ");
   }
   return res
@@ -47,39 +43,45 @@ const getUserTweets = asyncHandler(async (req, res) => {
 });
 
 const updateTweet = asyncHandler(async (req, res) => {
-  const { newContent } = req.body;
+  const { content } = req.body;
   const { tweetId } = req.params;
 
-  if (!newContent) {
+  const userId = req.user._id;
+
+  if (!content) {
     throw new ApiError(401, "Plese give new content");
   }
 
-  const tweet = await Tweet.findByIdAndUpdate(
-    tweetId,
-    {
-      $set: {
-        content: newContent,
-      },
-    },
-    { new: true }
-  );
-
+  const tweet = await Tweet.findById(tweetId);
   if (!tweet) {
-    throw new ApiError(401, "tweet not updated");
+    throw new ApiError(404, "tweet does not exist");
   }
+
+  if (Tweet.owner.toString() !== userId.toString()) {
+    throw new ApiError(404, "You are not authorized to update this tweet ");
+  }
+
+  Tweet.content = content;
+  const updatedTweet = await Tweet.save();
 
   return res
     .status(200)
-    .json(new ApiResponse(200, tweet, "tweetupdate successfully"));
+    .json(new ApiResponse(200, updatedTweet, "tweetupdate successfully"));
   //TODO: update tweet
 });
 
 const deleteTweet = asyncHandler(async (req, res) => {
   const { tweetId } = req.params;
+ const userId = req.user._id
+
 
   if (!isValidObjectId(tweetId)) {
     throw new ApiError(401, "Plese enter valid tweet id");
   }
+
+if (Tweet.owner.toString() !== userId.toString()) {
+  throw new ApiError(404,"you are not authorized for delete this tweet")
+}
 
   const tweet = await Tweet.findByIdAndDelete(tweetId);
 
